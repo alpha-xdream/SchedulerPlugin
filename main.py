@@ -25,9 +25,9 @@ class SchedulerPlugin(BasePlugin):
             # 输出调试信息
             self.ap.logger.debug("daily, {}".format(ctx.event.sender_id))
 
-            asyncio.create_task(schedule_daily_task(self, "Daily Task Start 14:30!", "14:30"))
-            asyncio.create_task(schedule_daily_task(self, "Daily Task Start 14:45!", "14:45"))
-            asyncio.create_task(schedule_daily_task(self, "Daily Task Start 15:00!", "15:00"))
+            asyncio.create_task(self.schedule_daily_task(self, "Daily Task Start 14:30!", "14:30"))
+            asyncio.create_task(self.schedule_daily_task(self, "Daily Task Start 14:45!", "14:45"))
+            asyncio.create_task(self.schedule_daily_task(self, "Daily Task Start 15:00!", "15:00"))
             # 回复消息 "hello, <发送者id>!"
             ctx.add_return("reply", ["已设置每日任务, {}!".format(ctx.event.sender_id)])
 
