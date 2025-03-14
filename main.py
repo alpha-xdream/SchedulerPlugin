@@ -23,11 +23,20 @@ class SchedulerPlugin(BasePlugin):
         if msg == "daily":
 
             # 输出调试信息
-            self.ap.logger.debug("daily, {}".format(ctx.event.sender_id))
+            self.ap.logger.debug("daily, classId:{}, {}".format(id(self), ctx.event.sender_id))
 
-            asyncio.create_task(self.schedule_daily_task("Daily Task Start 14:30!", "14:30"))
-            asyncio.create_task(self.schedule_daily_task("Daily Task Start 14:45!", "14:45"))
-            asyncio.create_task(self.schedule_daily_task("Daily Task Start 15:00!", "15:00"))
+            target_info = {
+            "target_id": str(query.launcher_id),
+            "sender_id": str(query.sender_id), 
+            "target_type": str(query.launcher_type).split(".")[-1].lower(),  # 获取枚举值的小写形式
+            }
+            self.target_id = target_info["target_id"]
+            self.target_type = target_info["target_type"]
+            self.sender_id = target_info["sender_id"]
+
+            asyncio.create_task(self.schedule_daily_task("Daily Task Start 14:30!", "15:30"))
+            asyncio.create_task(self.schedule_daily_task("Daily Task Start 14:45!", "15:45"))
+            asyncio.create_task(self.schedule_daily_task("Daily Task Start 15:00!", "16:00"))
             # 回复消息 "hello, <发送者id>!"
             ctx.add_return("reply", ["已设置每日任务, {}!".format(ctx.event.sender_id)])
 
@@ -41,7 +50,7 @@ class SchedulerPlugin(BasePlugin):
         if msg == "hello":  # 如果消息为hello
 
             # 输出调试信息
-            self.ap.logger.debug("hello, {}".format(ctx.event.sender_id))
+            self.ap.logger.debug("hello, classId:{}, {}".format(id(self), ctx.event.sender_id))
 
             # 回复消息 "hello, everyone!"
             ctx.add_return("reply", ["hello, everyone!"])
@@ -104,6 +113,7 @@ class SchedulerPlugin(BasePlugin):
             
             # Calculate the number of seconds to wait until the target time
             wait_seconds = (target_time - now).total_seconds()
+            self.ap.logger.debug("schedule wait {}s, {}".format(wait_seconds, ctx.event.sender_id))
             await asyncio.sleep(wait_seconds)
             
             # Send the scheduled message
