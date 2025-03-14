@@ -113,7 +113,7 @@ class SchedulerPlugin(BasePlugin):
             
             # Calculate the number of seconds to wait until the target time
             wait_seconds = (target_time - now).total_seconds()
-            self.ap.logger.debug("schedule wait {}s, {}".format(wait_seconds, ctx.event.sender_id))
+            self.ap.logger.debug("schedule wait {}s, {}".format(wait_seconds, self.sender_id))
             await asyncio.sleep(wait_seconds)
             
             # Send the scheduled message
