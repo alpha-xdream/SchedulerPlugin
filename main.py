@@ -1,6 +1,6 @@
 from pkg.plugin.context import register, handler, llm_func, BasePlugin, APIHost, EventContext
 from pkg.plugin.events import *  # 导入事件类
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import asyncio
 import dateparser
 
@@ -102,10 +102,11 @@ class SchedulerPlugin(BasePlugin):
         :param messages: The message to be sent.
         :param daily_time: The time of day to send the message, in "HH:MM" format.
         """
+        tz = timezone(timedelta(hours=8))  # Define the timezone for UTC+8
         while True:
-            now = datetime.now()
-            # Parse the target time for today
-            target_time = datetime.strptime(daily_time, "%H:%M").replace(year=now.year, month=now.month, day=now.day)
+            now = datetime.now(tz)
+            # Parse the target time for today in UTC+8
+            target_time = datetime.strptime(daily_time, "%H:%M").replace(year=now.year, month=now.month, day=now.day, tzinfo=tz)
             
             # If the target time has already passed today, schedule for the next day
             if now > target_time:
