@@ -26,9 +26,9 @@ class SchedulerPlugin(BasePlugin):
             self.ap.logger.debug("daily, classId:{}, {}".format(id(self), ctx.event.sender_id))
 
             target_info = {
-            "target_id": str(query.launcher_id),
-            "sender_id": str(query.sender_id), 
-            "target_type": str(query.launcher_type).split(".")[-1].lower(),  # 获取枚举值的小写形式
+            "target_id": str(ctx.event.launcher_id),
+            "sender_id": str(ctx.event.sender_id), 
+            "target_type": str(ctx.event.launcher_type).split(".")[-1].lower(),  # 获取枚举值的小写形式
             }
             self.target_id = target_info["target_id"]
             self.target_type = target_info["target_type"]
