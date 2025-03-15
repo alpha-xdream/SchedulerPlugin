@@ -2,12 +2,17 @@ from pkg.plugin.context import register, handler, llm_func, BasePlugin, APIHost,
 from pkg.plugin.events import *  # 导入事件类
 from datetime import datetime, timedelta, timezone
 import asyncio
-import dateparser
+import pkg.platform.types as platform_types
+import openai
+from openai import OpenAI
+from typing import Union
+import httpx
 
 # 注册插件
 @register(name="Scheduler", description="自定义各种定时任务", version="0.1", author="AlphaXdream")
 class SchedulerPlugin(BasePlugin):
-
+    client: openai.AsyncClient = None
+    data: dict = {}
     # 插件加载时触发
     def __init__(self, host: APIHost):
         pass
@@ -21,24 +26,32 @@ class SchedulerPlugin(BasePlugin):
     async def person_normal_message_received(self, ctx: EventContext):
         msg = ctx.event.text_message  # 这里的 event 即为 PersonNormalMessageReceived 的对象
         if msg == "daily":
+            if self.data.get(str(ctx.event.sender_id)) is None:
+                self.data[str(ctx.event.sender_id)] = {}
+                self.data[str(ctx.event.sender_id)]["daily"] = True
+                self.data[str(ctx.event.sender_id)]["daily_time"] = "02:00"
+            else:
+                ctx.add_return("reply", ["已设置每日任务, 不用重复设置!"])
+                ctx.prevent_default()
+                return
 
             # 输出调试信息
-            self.ap.logger.debug("daily, classId:{}, {}".format(id(self), ctx.event.sender_id))
+            self.ap.logger.info("daily, classId:{}, {}".format(id(self), ctx.event.sender_id))
 
             target_info = {
             "target_id": str(ctx.event.launcher_id),
-            "sender_id": str(ctx.event.sender_id), 
+            "sender_id": str(ctx.event.sender_id),
             "target_type": str(ctx.event.launcher_type).split(".")[-1].lower(),  # 获取枚举值的小写形式
             }
             self.target_id = target_info["target_id"]
             self.target_type = target_info["target_type"]
             self.sender_id = target_info["sender_id"]
 
-            asyncio.create_task(self.schedule_daily_task("Daily Task Start 14:30!", "15:30"))
-            asyncio.create_task(self.schedule_daily_task("Daily Task Start 14:45!", "15:45"))
-            asyncio.create_task(self.schedule_daily_task("Daily Task Start 15:00!", "16:00"))
+            #【错峰优惠活动】北京时间每日 00:30-08:30 为错峰时段，API 调用价格大幅下调：
+            # DeepSeek-V3 降至原价的 50%，DeepSeek-R1 降至 25%，在该时段调用享受更经济更流畅的服务体验。
+            asyncio.create_task(self.schedule_daily_task("Daily training Start!", "02:00"))
             # 回复消息 "hello, <发送者id>!"
-            ctx.add_return("reply", ["已设置每日任务, {}!".format(ctx.event.sender_id)])
+            ctx.add_return("reply", ["已设置每日任务!"])
 
             # 阻止该事件默认行为（向接口获取回复）
             ctx.prevent_default()
@@ -50,7 +63,7 @@ class SchedulerPlugin(BasePlugin):
         if msg == "hello":  # 如果消息为hello
 
             # 输出调试信息
-            self.ap.logger.debug("hello, classId:{}, {}".format(id(self), ctx.event.sender_id))
+            self.ap.logger.info("hello, classId:{}, {}".format(id(self), ctx.event.sender_id))
 
             # 回复消息 "hello, everyone!"
             ctx.add_return("reply", ["hello, everyone!"])
@@ -58,42 +71,27 @@ class SchedulerPlugin(BasePlugin):
             # 阻止该事件默认行为（向接口获取回复）
             ctx.prevent_default()
 
-    async def runTask(self, messages: str, end_time: str, interval_minutes: int):
-        start_time = datetime.now()
-        
-        end_time_parsed = dateparser.parse(end_time)
-        if end_time_parsed is None:
-            raise ValueError(f"Unable to parse the end time: {end_time}")
-        end_time = end_time_parsed
-        current_time = start_time
-        result_messages = []  
-        
-        # 启动后台任务
-        await self.replytask(messages, end_time, interval_minutes, current_time, result_messages)
-
-
-    async def replytask(self, messages: str, end_time: str, interval_minutes: int, current_time: datetime, result_messages: list):
-        # 每次检查时间，确保不超出end_time
-        while current_time <= end_time:
-            #print(f"Current time: {current_time}, End time: {end_time}")
-            result_messages.append((current_time.strftime("%Y-%m-%d %H:%M:%S"), messages))
-            #print(f"Scheduled message at {current_time.strftime('%Y-%m-%d %H:%M:%S')}: {messages}")
-            
-            await asyncio.sleep(interval_minutes * 60)
-
-            current_time = datetime.now()
-
-            if current_time > end_time:
-                break
-
-        await self.host.send_active_message(
-                    adapter=self.host.get_platform_adapters()[0],
-                    target_type=self.target_type,
-                    target_id=self.target_id,
-                    message=platform_types.MessageChain([platform_types.At(self.sender_id),
-                        platform_types.Plain(messages)
-                    ])
+    async def chat_with_gpt(self, prompt: str, temperature: float = 0.7) -> Union[str, None]:
+        if self.client is None:
+            requester_cfg = self.ap.provider_cfg.data['requester']['deepseek-chat-completions']
+            self.client = openai.AsyncClient(
+                api_key=self.ap.provider_cfg.data["keys"]["deepseek"][0],
+                base_url=requester_cfg['base-url'],
+                timeout=requester_cfg['timeout'],
+                http_client=httpx.AsyncClient(
+                    trust_env=True,
+                    timeout=requester_cfg['timeout']
                 )
+            )
+        response = await self.client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant"},
+                {"role": "user", "content": prompt},
+            ],
+            stream=False
+        )
+        return response.choices[0].message.content
 
     async def schedule_daily_task(self, messages: str, daily_time: str):
         """
@@ -114,9 +112,22 @@ class SchedulerPlugin(BasePlugin):
             
             # Calculate the number of seconds to wait until the target time
             wait_seconds = (target_time - now).total_seconds()
-            self.ap.logger.debug("schedule wait {}s, {}".format(wait_seconds, self.sender_id))
+            self.ap.logger.info("schedule wait {}s, {}".format(wait_seconds, self.sender_id))
             await asyncio.sleep(wait_seconds)
             
+            prompts = ["随机3个不相干的词汇，以此创作一个故事和概念草图", "我想要进行限制性创作，请给出一个极端限制条件的问题"]
+            index = 0
+            for prompt in prompts:
+                while True:
+                    try:
+                        response = await self.chat_with_gpt(prompt)
+                        index += 1
+                        messages = f"{messages}\n{index}. {prompt}\n{response}\n"
+                        break
+                    except Exception as e:
+                        self.ap.logger.error(f"Error occurred while chatting with GPT: {e}")
+                        await asyncio.sleep(5)
+
             # Send the scheduled message
             await self.host.send_active_message(
                 adapter=self.host.get_platform_adapters()[0],

@@ -1,3 +1,2 @@
-dateparser
 asyncio
 datetime
