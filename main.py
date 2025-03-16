@@ -98,7 +98,10 @@ class SchedulerPlugin(BasePlugin):
         lines = []
         with open(file_path, 'r', encoding='utf-8') as file:
             for line in file:
-                lines.append(line.strip())
+                line = line.strip()
+                if line == "":
+                    continue
+                lines.append(line)
         return lines
     async def schedule_daily_task(self, messages: str, daily_time: str):
         """
