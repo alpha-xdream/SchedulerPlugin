@@ -93,6 +93,13 @@ class SchedulerPlugin(BasePlugin):
         )
         return response.choices[0].message.content
 
+    # 按行读取文件
+    def read_file_by_line(self, file_path):
+        lines = []
+        with open(file_path, 'r', encoding='utf-8') as file:
+            for line in file:
+                lines.append(line.strip())
+        return lines
     async def schedule_daily_task(self, messages: str, daily_time: str):
         """
         Schedule a task to send a message at a fixed daily time.
@@ -114,29 +121,36 @@ class SchedulerPlugin(BasePlugin):
             wait_seconds = (target_time - now).total_seconds()
             self.ap.logger.info("schedule wait {}s, {}".format(wait_seconds, self.sender_id))
             await asyncio.sleep(wait_seconds)
+            await self.send_message(messages)
             
-            prompts = ["随机3个不相干的词汇，以此创作一个故事和概念草图", "我想要进行限制性创作，请给出一个极端限制条件的问题"]
+            prompts = self.read_file_by_line("daily.txt")
             index = 0
             for prompt in prompts:
                 while True:
                     try:
                         response = await self.chat_with_gpt(prompt)
                         index += 1
-                        messages = f"{messages}\n{index}. {prompt}\n{response}\n"
+                        messages = f"{index}. {prompt}\n{response}"
+                        await self.send_message(messages)
                         break
                     except Exception as e:
                         self.ap.logger.error(f"Error occurred while chatting with GPT: {e}")
                         await asyncio.sleep(5)
 
             # Send the scheduled message
-            await self.host.send_active_message(
-                adapter=self.host.get_platform_adapters()[0],
-                target_type=self.target_type,
-                target_id=self.target_id,
-                message=platform_types.MessageChain([platform_types.At(self.sender_id),
-                    platform_types.Plain(messages)
-                ])
-            )
+            # TODO: 支持多人
+            # await self.send_message(messages)
+
+    async def send_message(self, messages: str):
+        # Send the scheduled message
+        await self.host.send_active_message(
+            adapter=self.host.get_platform_adapters()[0],
+            target_type=self.target_type,
+            target_id=self.target_id,
+            message=platform_types.MessageChain([platform_types.At(self.sender_id),
+                platform_types.Plain(messages)
+            ])
+        )
 
     # 插件卸载时触发
     def __del__(self):
