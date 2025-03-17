@@ -16,11 +16,11 @@ class SchedulerPlugin(BasePlugin):
     data: dict = {}
     # 插件加载时触发
     def __init__(self, host: APIHost):
-        self.ap.logger.info("SchedulerPlugin init")
+        pass
 
     # 异步初始化
     async def initialize(self):
-        pass
+        self.ap.logger.info("SchedulerPlugin init")
 
     # 当收到个人消息时触发
     @handler(PersonNormalMessageReceived)
