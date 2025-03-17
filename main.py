@@ -43,9 +43,9 @@ class SchedulerPlugin(BasePlugin):
             self.target_type = target_info["target_type"]
             self.sender_id = target_info["sender_id"]
 
-            
+
             if len(commands) > 2:
-                self.do_daily_task("Daily training Start Immediately!")
+                await self.do_daily_task("Daily training Start Immediately!")
                 ctx.prevent_default()
                 return
 
