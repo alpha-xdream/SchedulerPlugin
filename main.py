@@ -7,6 +7,7 @@ import openai
 from openai import OpenAI
 from typing import Union
 import httpx
+import os
 
 # 注册插件
 @register(name="Scheduler", description="自定义各种定时任务", version="0.1", author="AlphaXdream")
@@ -15,7 +16,7 @@ class SchedulerPlugin(BasePlugin):
     data: dict = {}
     # 插件加载时触发
     def __init__(self, host: APIHost):
-        pass
+        self.ap.logger.info("SchedulerPlugin init")
 
     # 异步初始化
     async def initialize(self):
@@ -49,7 +50,7 @@ class SchedulerPlugin(BasePlugin):
 
             #【错峰优惠活动】北京时间每日 00:30-08:30 为错峰时段，API 调用价格大幅下调：
             # DeepSeek-V3 降至原价的 50%，DeepSeek-R1 降至 25%，在该时段调用享受更经济更流畅的服务体验。
-            asyncio.create_task(self.schedule_daily_task("Daily training Start!", "02:00"))
+            self.data[self.sender_id]["task"] = asyncio.create_task(self.schedule_daily_task("Daily training Start!", "02:00"))
             # 回复消息 "hello, <发送者id>!"
             ctx.add_return("reply", ["已设置每日任务!"])
 
@@ -95,6 +96,7 @@ class SchedulerPlugin(BasePlugin):
 
     # 按行读取文件
     def read_file_by_line(self, file_path):
+        file_path = os.path.join(os.path.dirname(__file__), file_path)
         lines = []
         with open(file_path, 'r', encoding='utf-8') as file:
             for line in file:
@@ -157,4 +159,10 @@ class SchedulerPlugin(BasePlugin):
 
     # 插件卸载时触发
     def __del__(self):
-        pass
+        self.ap.logger.info("SchedulerPlugin del")
+        for key in self.data:
+            if self.data[key].get("task") is not None:
+                self.data[key]["task"].cancel()
+        self.data.clear()
+        self.client.close()
+        self.client = None
