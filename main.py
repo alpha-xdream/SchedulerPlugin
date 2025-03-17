@@ -31,7 +31,7 @@ class SchedulerPlugin(BasePlugin):
             return
         command = commands[1]
         if command == "daily":
-            if commands[2] is not None:
+            if len(commands) > 2:
                 self.do_daily_task("Daily training Start Immediately!")
                 return
 
