@@ -145,19 +145,22 @@ class SchedulerPlugin(BasePlugin):
 
     async def do_daily_task(self, messages: str):
         await self.send_message(messages)
+        messages = None
         prompts = self.read_file_by_line("daily.txt")
-        index = 0
+        index = 1
         for prompt in prompts:
             while True:
                 try:
-                    response = await self.chat_with_gpt(prompt)
-                    index += 1
-                    messages = f"{index}. {prompt}\n{response}"
+                    if messages is None:
+                        response = await self.chat_with_gpt(prompt)
+                        messages = f"{index}. {prompt}\n{response}"
                     await self.send_message(messages)
+                    index += 1
+                    messages = None
                     break
                 except Exception as e:
                     self.ap.logger.error(f"Error occurred while chatting with GPT: {e}")
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(15)
 
     async def send_message(self, messages: str):
         # Send the scheduled message
