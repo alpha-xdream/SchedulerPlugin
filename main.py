@@ -164,5 +164,6 @@ class SchedulerPlugin(BasePlugin):
             if self.data[key].get("task") is not None:
                 self.data[key]["task"].cancel()
         self.data.clear()
-        self.client.close()
-        self.client = None
+        if self.client is not None:
+            self.client.close()
+            self.client = None
