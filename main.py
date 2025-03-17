@@ -20,13 +20,21 @@ class SchedulerPlugin(BasePlugin):
 
     # 异步初始化
     async def initialize(self):
-        self.ap.logger.info("SchedulerPlugin init")
+        self.ap.logger.info(f"SchedulerPlugin init {id(self)}")
 
     # 当收到个人消息时触发
     @handler(PersonNormalMessageReceived)
     async def person_normal_message_received(self, ctx: EventContext):
         msg = ctx.event.text_message  # 这里的 event 即为 PersonNormalMessageReceived 的对象
-        if msg == "daily":
+        commands = msg.split(" ")
+        if commands[0] != "sched":
+            return
+        command = commands[1]
+        if command == "daily":
+            if commands[2] is not None:
+                self.do_daily_task("Daily training Start Immediately!")
+                return
+
             if self.data.get(str(ctx.event.sender_id)) is None:
                 self.data[str(ctx.event.sender_id)] = {}
                 self.data[str(ctx.event.sender_id)]["daily"] = True
@@ -54,8 +62,9 @@ class SchedulerPlugin(BasePlugin):
             # 回复消息 "hello, <发送者id>!"
             ctx.add_return("reply", ["已设置每日任务!"])
 
-            # 阻止该事件默认行为（向接口获取回复）
-            ctx.prevent_default()
+
+        # 阻止该事件默认行为（向接口获取回复）
+        ctx.prevent_default()
 
     # 当收到群消息时触发
     @handler(GroupNormalMessageReceived)
@@ -126,25 +135,27 @@ class SchedulerPlugin(BasePlugin):
             wait_seconds = (target_time - now).total_seconds()
             self.ap.logger.info("schedule wait {}s, {}".format(wait_seconds, self.sender_id))
             await asyncio.sleep(wait_seconds)
-            await self.send_message(messages)
-            
-            prompts = self.read_file_by_line("daily.txt")
-            index = 0
-            for prompt in prompts:
-                while True:
-                    try:
-                        response = await self.chat_with_gpt(prompt)
-                        index += 1
-                        messages = f"{index}. {prompt}\n{response}"
-                        await self.send_message(messages)
-                        break
-                    except Exception as e:
-                        self.ap.logger.error(f"Error occurred while chatting with GPT: {e}")
-                        await asyncio.sleep(5)
+            await self.do_daily_task(messages)
 
             # Send the scheduled message
             # TODO: 支持多人
             # await self.send_message(messages)
+
+    async def do_daily_task(self, messages: str):
+        await self.send_message(messages)
+        prompts = self.read_file_by_line("daily.txt")
+        index = 0
+        for prompt in prompts:
+            while True:
+                try:
+                    response = await self.chat_with_gpt(prompt)
+                    index += 1
+                    messages = f"{index}. {prompt}\n{response}"
+                    await self.send_message(messages)
+                    break
+                except Exception as e:
+                    self.ap.logger.error(f"Error occurred while chatting with GPT: {e}")
+                    await asyncio.sleep(5)
 
     async def send_message(self, messages: str):
         # Send the scheduled message
@@ -159,7 +170,7 @@ class SchedulerPlugin(BasePlugin):
 
     # 插件卸载时触发
     def __del__(self):
-        self.ap.logger.info("SchedulerPlugin del")
+        self.ap.logger.info(f"SchedulerPlugin del {id(self)}")
         for key in self.data:
             if self.data[key].get("task") is not None:
                 self.data[key]["task"].cancel()
