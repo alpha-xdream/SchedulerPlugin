@@ -31,19 +31,6 @@ class SchedulerPlugin(BasePlugin):
             return
         command = commands[1]
         if command == "daily":
-            if len(commands) > 2:
-                self.do_daily_task("Daily training Start Immediately!")
-                return
-
-            if self.data.get(str(ctx.event.sender_id)) is None:
-                self.data[str(ctx.event.sender_id)] = {}
-                self.data[str(ctx.event.sender_id)]["daily"] = True
-                self.data[str(ctx.event.sender_id)]["daily_time"] = "02:00"
-            else:
-                ctx.add_return("reply", ["已设置每日任务, 不用重复设置!"])
-                ctx.prevent_default()
-                return
-
             # 输出调试信息
             self.ap.logger.info("daily, classId:{}, {}".format(id(self), ctx.event.sender_id))
 
@@ -55,6 +42,21 @@ class SchedulerPlugin(BasePlugin):
             self.target_id = target_info["target_id"]
             self.target_type = target_info["target_type"]
             self.sender_id = target_info["sender_id"]
+
+            
+            if len(commands) > 2:
+                self.do_daily_task("Daily training Start Immediately!")
+                ctx.prevent_default()
+                return
+
+            if self.data.get(str(ctx.event.sender_id)) is None:
+                self.data[str(ctx.event.sender_id)] = {}
+                self.data[str(ctx.event.sender_id)]["daily"] = True
+                self.data[str(ctx.event.sender_id)]["daily_time"] = "02:00"
+            else:
+                ctx.add_return("reply", ["已设置每日任务, 不用重复设置!"])
+                ctx.prevent_default()
+                return
 
             #【错峰优惠活动】北京时间每日 00:30-08:30 为错峰时段，API 调用价格大幅下调：
             # DeepSeek-V3 降至原价的 50%，DeepSeek-R1 降至 25%，在该时段调用享受更经济更流畅的服务体验。
