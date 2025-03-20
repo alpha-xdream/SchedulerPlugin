@@ -37,7 +37,7 @@ class SchedulerPlugin(BasePlugin):
         target_info = TargetInfo(str(ctx.event.launcher_id), str(ctx.event.launcher_type).split(".")[-1].lower(), str(ctx.event.sender_id))
         commands = msg.split(" ")
         if commands[0] != "sched":
-            self.send_message(target_info, f"Test Person Message launcher_id:{ctx.event.launcher_id}, launcher_type: {ctx.event.launcher_type}, sender_id:{ctx.event.sender_id}")
+            await self.send_message(target_info, f"Test Person Message launcher_id:{ctx.event.launcher_id}, launcher_type: {ctx.event.launcher_type}, sender_id:{ctx.event.sender_id}")
             return
 
 
@@ -88,7 +88,7 @@ class SchedulerPlugin(BasePlugin):
             # 回复消息 "hello, everyone!"
             ctx.add_return("reply", ["hello, everyone!"])
             target_info = TargetInfo(str(ctx.event.launcher_id), str(ctx.event.launcher_type).split(".")[-1].lower(), str(ctx.event.sender_id))
-            self.send_message(target_info, f"Test Group Message launcher_id:{ctx.event.launcher_id}, launcher_type: {ctx.event.launcher_type}, sender_id:{ctx.event.sender_id}")
+            await self.send_message(target_info, f"Test Group Message launcher_id:{ctx.event.launcher_id}, launcher_type: {ctx.event.launcher_type}, sender_id:{ctx.event.sender_id}")
 
         # 阻止该事件默认行为（向接口获取回复）
         ctx.prevent_default()
