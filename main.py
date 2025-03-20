@@ -9,6 +9,12 @@ from typing import Union
 import httpx
 import os
 
+class TargetInfo(object):
+    def __init__(self, target_id: str, target_type: str, sender_id: str):
+        self.target_id = target_id
+        self.target_type = target_type
+        self.sender_id = sender_id
+
 # 注册插件
 @register(name="Scheduler", description="自定义各种定时任务", version="0.1", author="AlphaXdream")
 class SchedulerPlugin(BasePlugin):
@@ -25,24 +31,25 @@ class SchedulerPlugin(BasePlugin):
     # 当收到个人消息时触发
     @handler(PersonNormalMessageReceived)
     async def person_normal_message_received(self, ctx: EventContext):
+        ctx.prevent_default()
+        
         msg = ctx.event.text_message  # 这里的 event 即为 PersonNormalMessageReceived 的对象
         commands = msg.split(" ")
         if commands[0] != "sched":
+            self.send_message(target_info, f"Test Person Message launcher_id:{ctx.event.launcher_id}, launcher_type: {ctx.event.launcher_type}, sender_id:{ctx.event.sender_id}")
             return
+
+        target_info = TargetInfo(str(ctx.event.launcher_id), str(ctx.event.launcher_type).split(".")[-1].lower(), str(ctx.event.sender_id))
+
         command = commands[1]
+        if command == "testfile":
+            await self.send_file(target_info, "daily.txt")
+            ctx.prevent_default()
+            return
+        
         if command == "daily":
             # 输出调试信息
             self.ap.logger.info("daily, classId:{}, {}".format(id(self), ctx.event.sender_id))
-
-            target_info = {
-            "target_id": str(ctx.event.launcher_id),
-            "sender_id": str(ctx.event.sender_id),
-            "target_type": str(ctx.event.launcher_type).split(".")[-1].lower(),  # 获取枚举值的小写形式
-            }
-            self.target_id = target_info["target_id"]
-            self.target_type = target_info["target_type"]
-            self.sender_id = target_info["sender_id"]
-
 
             if len(commands) > 2:
                 await self.do_daily_task("Daily training Start Immediately!")
@@ -53,6 +60,7 @@ class SchedulerPlugin(BasePlugin):
                 self.data[str(ctx.event.sender_id)] = {}
                 self.data[str(ctx.event.sender_id)]["daily"] = True
                 self.data[str(ctx.event.sender_id)]["daily_time"] = "02:00"
+                self.data[str(ctx.event.sender_id)]["info"] = target_info
             else:
                 ctx.add_return("reply", ["已设置每日任务, 不用重复设置!"])
                 ctx.prevent_default()
@@ -60,7 +68,7 @@ class SchedulerPlugin(BasePlugin):
 
             #【错峰优惠活动】北京时间每日 00:30-08:30 为错峰时段，API 调用价格大幅下调：
             # DeepSeek-V3 降至原价的 50%，DeepSeek-R1 降至 25%，在该时段调用享受更经济更流畅的服务体验。
-            self.data[self.sender_id]["task"] = asyncio.create_task(self.schedule_daily_task("Daily training Start!", "02:00"))
+            self.data[target_info.sender_id]["task"] = asyncio.create_task(self.schedule_daily_task(target_info, "Daily training Start!", "02:00"))
             # 回复消息 "hello, <发送者id>!"
             ctx.add_return("reply", ["已设置每日任务!"])
 
@@ -79,9 +87,11 @@ class SchedulerPlugin(BasePlugin):
 
             # 回复消息 "hello, everyone!"
             ctx.add_return("reply", ["hello, everyone!"])
+            target_info = TargetInfo(str(ctx.event.launcher_id), str(ctx.event.launcher_type).split(".")[-1].lower(), str(ctx.event.sender_id))
+            self.send_message(target_info, f"Test Group Message launcher_id:{ctx.event.launcher_id}, launcher_type: {ctx.event.launcher_type}, sender_id:{ctx.event.sender_id}")
 
-            # 阻止该事件默认行为（向接口获取回复）
-            ctx.prevent_default()
+        # 阻止该事件默认行为（向接口获取回复）
+        ctx.prevent_default()
 
     async def chat_with_gpt(self, prompt: str, temperature: float = 0.7) -> Union[str, None]:
         if self.client is None:
@@ -116,7 +126,7 @@ class SchedulerPlugin(BasePlugin):
                     continue
                 lines.append(line)
         return lines
-    async def schedule_daily_task(self, messages: str, daily_time: str):
+    async def schedule_daily_task(self, target_info: TargetInfo, messages: str, daily_time: str):
         """
         Schedule a task to send a message at a fixed daily time.
 
@@ -135,7 +145,7 @@ class SchedulerPlugin(BasePlugin):
             
             # Calculate the number of seconds to wait until the target time
             wait_seconds = (target_time - now).total_seconds()
-            self.ap.logger.info("schedule wait {}s, {}".format(wait_seconds, self.sender_id))
+            self.ap.logger.info("schedule wait {}s, {}".format(wait_seconds, target_info.sender_id))
             await asyncio.sleep(wait_seconds)
             await self.do_daily_task(messages)
 
@@ -143,7 +153,7 @@ class SchedulerPlugin(BasePlugin):
             # TODO: 支持多人
             # await self.send_message(messages)
 
-    async def do_daily_task(self, messages: str):
+    async def do_daily_task(self, target_info:TargetInfo, messages: str):
         await self.send_message(messages)
         messages = None
         prompts = self.read_file_by_line("daily.txt")
@@ -162,14 +172,28 @@ class SchedulerPlugin(BasePlugin):
                     self.ap.logger.error(f"Error occurred while chatting with GPT: {e}")
                     await asyncio.sleep(15)
 
-    async def send_message(self, messages: str):
+    async def send_message(self, target_info:TargetInfo, messages: str):
         # Send the scheduled message
         await self.host.send_active_message(
             adapter=self.host.get_platform_adapters()[0],
-            target_type=self.target_type,
-            target_id=self.target_id,
-            message=platform_types.MessageChain([platform_types.At(self.sender_id),
+            target_type=target_info.target_type,
+            target_id=target_info.target_id,
+            message=platform_types.MessageChain([platform_types.At(target_info.sender_id),
                 platform_types.Plain(messages)
+            ])
+        )
+
+    async def send_file(self, target_info: TargetInfo, file_path: str):
+        file_path = os.path.join(os.path.dirname(__file__), file_path)
+        if not os.path.exists(file_path):
+            self.ap.logger.error(f"File not found: {file_path}")
+            return
+        await self.host.send_active_message(
+            adapter=self.host.get_platform_adapters()[0],
+            target_type=target_info.target_type,
+            target_id=target_info.target_id,
+            message=platform_types.MessageChain([platform_types.At(target_info.sender_id),
+                platform_types.File(file_path)
             ])
         )
 
