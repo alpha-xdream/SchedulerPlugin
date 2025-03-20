@@ -34,12 +34,12 @@ class SchedulerPlugin(BasePlugin):
         ctx.prevent_default()
         
         msg = ctx.event.text_message  # 这里的 event 即为 PersonNormalMessageReceived 的对象
+        target_info = TargetInfo(str(ctx.event.launcher_id), str(ctx.event.launcher_type).split(".")[-1].lower(), str(ctx.event.sender_id))
         commands = msg.split(" ")
         if commands[0] != "sched":
             self.send_message(target_info, f"Test Person Message launcher_id:{ctx.event.launcher_id}, launcher_type: {ctx.event.launcher_type}, sender_id:{ctx.event.sender_id}")
             return
 
-        target_info = TargetInfo(str(ctx.event.launcher_id), str(ctx.event.launcher_type).split(".")[-1].lower(), str(ctx.event.sender_id))
 
         command = commands[1]
         if command == "testfile":
