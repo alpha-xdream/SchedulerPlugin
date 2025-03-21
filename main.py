@@ -11,8 +11,11 @@ import os
 
 class TargetInfo(object):
     def __init__(self, target_id: str, target_type: str, sender_id: str):
+        # QQ群群号或者QQ号
         self.target_id = target_id
+        # person或者group。person表示私聊，group表示群聊
         self.target_type = target_type
+        # 发送者QQ号
         self.sender_id = sender_id
 
 # 注册插件
