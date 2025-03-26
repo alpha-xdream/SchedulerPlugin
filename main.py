@@ -24,7 +24,7 @@ class TargetInfo(object):
 class SchedulerPlugin(BasePlugin):
     # 消息平台的域名,端口号和token
     # 使用时需在napcat内配置http服务器 host和port对应好
-    http_host = "localhost"
+    http_host = "napcat"
     http_port = 2333
     # 若消息平台未配置token则留空 否则填写配置的token
     token = ""
@@ -202,7 +202,12 @@ class SchedulerPlugin(BasePlugin):
             self.ap.logger.error(f"File not found: {file_path}")
             return
         
-        await self.upload_private_file(target_info.sender_id, file_path, relpath)
+        file_name = os.path.basename(file_path)
+        # Use scp to copy the file to the target machine
+        target_machine = "napcat:/tmp/"
+        command = f"scp {file_path} {target_machine}"
+        os.system(command)
+        await self.upload_private_file(target_info.sender_id, "/tmp/" + file_name, file_name)
         # await self.host.send_active_message(
         #     adapter=self.host.get_platform_adapters()[0],
         #     target_type=target_info.target_type,
@@ -212,6 +217,7 @@ class SchedulerPlugin(BasePlugin):
         #     ])
         # )
 
+    # 感谢 https://github.com/exneverbur/ShowMeJM
     # 发送私聊文件
     async def upload_private_file(self, user_id, file, name):
         url = f"http://{self.http_host}:{self.http_port}/upload_private_file"
