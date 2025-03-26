@@ -8,6 +8,7 @@ from openai import OpenAI
 from typing import Union
 import httpx
 import os
+import aiohttp
 
 class TargetInfo(object):
     def __init__(self, target_id: str, target_type: str, sender_id: str):
@@ -21,6 +22,15 @@ class TargetInfo(object):
 # 注册插件
 @register(name="Scheduler", description="自定义各种定时任务", version="0.1", author="AlphaXdream")
 class SchedulerPlugin(BasePlugin):
+    # 消息平台的域名,端口号和token
+    # 使用时需在napcat内配置http服务器 host和port对应好
+    http_host = "localhost"
+    http_port = 2333
+    # 若消息平台未配置token则留空 否则填写配置的token
+    token = ""
+    # 上传到群文件的哪个目录?默认"/"是传到根目录 如果指定目录要提前在群文件里建好文件夹
+    group_folder = "/"
+
     client: openai.AsyncClient = None
     data: dict = {}
     # 插件加载时触发
@@ -186,19 +196,75 @@ class SchedulerPlugin(BasePlugin):
             ])
         )
 
-    async def send_file(self, target_info: TargetInfo, file_path: str):
-        file_path = os.path.join(os.path.dirname(__file__), file_path)
+    async def send_file(self, target_info: TargetInfo, relpath: str):
+        file_path = os.path.join(os.path.dirname(__file__), relpath)
         if not os.path.exists(file_path):
             self.ap.logger.error(f"File not found: {file_path}")
             return
-        await self.host.send_active_message(
-            adapter=self.host.get_platform_adapters()[0],
-            target_type=target_info.target_type,
-            target_id=target_info.target_id,
-            message=platform_types.MessageChain([platform_types.At(target_info.sender_id),
-                platform_types.File(file_path)
-            ])
-        )
+        
+        await self.upload_private_file(target_info.sender_id, file_path, relpath)
+        # await self.host.send_active_message(
+        #     adapter=self.host.get_platform_adapters()[0],
+        #     target_type=target_info.target_type,
+        #     target_id=target_info.target_id,
+        #     message=platform_types.MessageChain([platform_types.At(target_info.sender_id),
+        #         platform_types.File(file_path)
+        #     ])
+        # )
+
+    # 发送私聊文件
+    async def upload_private_file(self, user_id, file, name):
+        url = f"http://{self.http_host}:{self.http_port}/upload_private_file"
+        payload = {
+            "user_id": user_id,
+            "file": file,
+            "name": name
+        }
+        if self.token == "":
+            headers = {
+                'Content-Type': 'application/json'
+            }
+        else:
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.token}'
+            }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers) as response:
+                if response.status != 200:
+                    raise Exception(f"上传失败，状态码: {response.status}, 错误信息: {response.text}")
+                res = await response.json()
+                print("napcat返回消息->" + str(res))
+                if res["status"] != "ok":
+                    raise Exception(f"上传失败，状态码: {res['status']}, 描述: {res['message']}\n完整消息: {str(res)}")
+
+    # 发送群文件
+    async def upload_group_file(self, group_id, file, name):
+        url = f"http://{self.http_host}:{self.http_port}/upload_group_file"
+        payload = {
+            "group_id": group_id,
+            "file": file,
+            "name": name,
+            "folder_id": self.group_folder
+        }
+        if self.token == "":
+            headers = {
+                'Content-Type': 'application/json'
+            }
+        else:
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.token}'
+            }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers) as response:
+                if response.status != 200:
+                    raise Exception(f"上传失败，状态码: {response.status}, 错误信息: {response.text}")
+                res = await response.json()
+                print("napcat返回消息->" + str(res))
+                if res["status"] != "ok":
+                    raise Exception(f"上传失败，状态码: {res['status']}, 描述: {res['message']}\n完整消息: {str(res)}")
+
 
     # 插件卸载时触发
     def __del__(self):
