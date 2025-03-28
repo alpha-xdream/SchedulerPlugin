@@ -203,7 +203,7 @@ class SchedulerPlugin(BasePlugin):
             return
         
         file_name = os.path.basename(file_path)
-        # Use scp to copy the file to the target machine
+        # 需要在napcat安装和配置好sshd，langbot安装ssh（自带了scp）
         target_machine = "napcat:/tmp/"
         command = f"scp {file_path} {target_machine}"
         os.system(command)
