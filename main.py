@@ -65,7 +65,7 @@ class SchedulerPlugin(BasePlugin):
             self.ap.logger.info("daily, classId:{}, {}".format(id(self), ctx.event.sender_id))
 
             if len(commands) > 2:
-                await self.do_daily_task("Daily training Start Immediately!")
+                await self.do_daily_task(target_info, "Daily training Start Immediately!")
                 ctx.prevent_default()
                 return
 
@@ -160,7 +160,7 @@ class SchedulerPlugin(BasePlugin):
             wait_seconds = (target_time - now).total_seconds()
             self.ap.logger.info("schedule wait {}s, {}".format(wait_seconds, target_info.sender_id))
             await asyncio.sleep(wait_seconds)
-            await self.do_daily_task(messages)
+            await self.do_daily_task(target_info, messages)
 
             # Send the scheduled message
             # TODO: 支持多人
