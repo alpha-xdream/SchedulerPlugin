@@ -172,18 +172,27 @@ class SchedulerPlugin(BasePlugin):
         prompts = self.read_file_by_line("daily.txt")
         index = 1
         for prompt in prompts:
+            file_content = ""
             while True:
                 try:
                     if messages is None:
                         response = await self.chat_with_gpt(prompt)
                         messages = f"{index}. {prompt}\n{response}"
-                    await self.send_message(messages)
+                    # await self.send_message(messages)
+                    file_content = file_content + messages + "\n\n"
                     index += 1
                     messages = None
                     break
                 except Exception as e:
                     self.ap.logger.error(f"Error occurred while chatting with GPT: {e}")
                     await asyncio.sleep(15)
+            
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        output_file_name = f"{timestamp}_daily.txt"
+        output_file_path = os.path.join(os.path.dirname(__file__), output_file_name)
+        with open(output_file_path, "w", encoding="utf-8") as output_file:
+            output_file.write(file_content)
+        await self.send_file(target_info, output_file_name)
 
     async def send_message(self, target_info:TargetInfo, messages: str):
         # Send the scheduled message
