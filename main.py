@@ -171,8 +171,8 @@ class SchedulerPlugin(BasePlugin):
         messages = None
         prompts = self.read_file_by_line("daily.txt")
         index = 1
+        file_content = ""
         for prompt in prompts:
-            file_content = ""
             while True:
                 try:
                     if messages is None:
@@ -191,6 +191,7 @@ class SchedulerPlugin(BasePlugin):
         output_file_path = os.path.join(os.path.dirname(__file__), output_file_name)
         with open(output_file_path, "w", encoding="utf-8") as output_file:
             output_file.write(file_content)
+        await self.send_message(target_info, f"主人久等啦~已为您准备好的日常任务，快去查看吧~")
         await self.send_file(target_info, output_file_name)
 
     async def send_message(self, target_info:TargetInfo, messages: str):
