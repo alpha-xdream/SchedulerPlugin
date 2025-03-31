@@ -164,10 +164,10 @@ class SchedulerPlugin(BasePlugin):
 
             # Send the scheduled message
             # TODO: 支持多人
-            # await self.send_message(messages)
+            # await self.send_message(target_info, messages)
 
     async def do_daily_task(self, target_info:TargetInfo, messages: str):
-        await self.send_message(messages)
+        await self.send_message(target_info, messages)
         messages = None
         prompts = self.read_file_by_line("daily.txt")
         index = 1
@@ -178,7 +178,6 @@ class SchedulerPlugin(BasePlugin):
                     if messages is None:
                         response = await self.chat_with_gpt(prompt)
                         messages = f"{index}. {prompt}\n{response}"
-                    # await self.send_message(messages)
                     file_content = file_content + messages + "\n\n"
                     index += 1
                     messages = None
